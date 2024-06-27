@@ -4,45 +4,34 @@ import {
   DataSourceInstanceSettings,
   LegacyMetricFindQueryOptions,
   MetricFindValue,
-  ScopedVars,
-  SelectableValue,
   toDataFrame,
   VariableOption,
-  VariableWithMultiSupport,
+  VariableWithMultiSupport
 } from '@grafana/data';
 import { BackendDataSourceResponse, FetchResponse, getTemplateSrv } from '@grafana/runtime';
-import { isArray, isObject } from 'lodash';
+import { isObject } from 'lodash';
 import { lastValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { ResponseParser } from './response_parser';
+import { match, P } from 'ts-pattern';
+import { doFetch } from './doFetch';
 import {
   GenericOptions,
   GrafanaQuery,
-  MetricConfig,
   MetricFindTagKeys,
   MetricFindTagValues,
-  MetricPayloadConfig,
-  QueryEditorMode,
   QueryRequest,
-  VariableQuery,
+  VariableQuery
 } from './types';
-import { match, P } from 'ts-pattern';
 import { valueFromVariableWithMultiSupport } from './variable/valueFromVariableWithMultiSupport';
-import { doFetch } from './doFetch';
 
 export class DataSource extends DataSourceApi<GrafanaQuery, GenericOptions> {
   url: string;
   withCredentials: boolean;
   headers: any;
-  responseParser: ResponseParser;
-  defaultEditorMode: QueryEditorMode;
   constructor(instanceSettings: DataSourceInstanceSettings<GenericOptions>) {
     super(instanceSettings);
 
-    this.responseParser = new ResponseParser();
-    this.defaultEditorMode = instanceSettings.jsonData?.defaultEditorMode ?? 'code';
     this.url = instanceSettings.url === undefined ? '' : instanceSettings.url;
-
     this.withCredentials = instanceSettings.withCredentials !== undefined;
     this.headers = { 'Content-Type': 'application/json' };
     if (typeof instanceSettings.basicAuth === 'string' && instanceSettings.basicAuth.length > 0) {
@@ -59,6 +48,7 @@ export class DataSource extends DataSourceApi<GrafanaQuery, GenericOptions> {
       return Promise.resolve({ data: [] });
     }
 
+    // todo: 疑似无用
     options.scopedVars = { ...this.getVariables(), ...options.scopedVars };
 
     return lastValueFrom(
@@ -94,7 +84,7 @@ export class DataSource extends DataSourceApi<GrafanaQuery, GenericOptions> {
       }
 
       return {
-        message: response.statusText ? response.statusText : errorMessageBase,
+        message: `status code ${response.status}` + response.statusText ? response.statusText : errorMessageBase,
         status: 'error',
         title: 'Error',
       };
@@ -112,90 +102,38 @@ export class DataSource extends DataSourceApi<GrafanaQuery, GenericOptions> {
         message += `: ${error.data.error.code}. ${error.data.error.message}`;
       }
 
-      return { status: 'error', message, title: 'Error' };
+      return { status: 'error', message, title: 'Error', Error: err };
     }
   }
 
   metricFindQuery(variableQuery: VariableQuery, options?: LegacyMetricFindQueryOptions): Promise<MetricFindValue[]> {
-    const interpolated =
-      variableQuery.format === 'json'
-        ? JSON.parse(getTemplateSrv().replace(variableQuery.query, undefined, 'json'))
-        : {
-            target: getTemplateSrv().replace(variableQuery.query, undefined, 'regex'),
-          };
+    const interpolated = getTemplateSrv().replace(variableQuery.query, undefined, 'regex');
 
     const variableQueryData = {
-      payload: interpolated,
+      target: interpolated,
       range: options?.range,
     };
 
     return lastValueFrom(
       doFetch<BackendDataSourceResponse>(this, {
-        url: `${this.url}/variable`,
+        url: `${this.url}/search`,
         data: variableQueryData,
         method: 'POST',
-      }).pipe(map((response) => this.responseParser.transformMetricFindResponse(response)))
+      }).pipe(map((response) => this.mapToTextValue(response)))
     );
   }
 
-  listMetricPayloadOptions(
-    name: string,
-    metric: string,
-    payload: string | { [key: string]: unknown }
-  ): Promise<Array<SelectableValue<string | number>>> {
-    return lastValueFrom<Array<SelectableValue<string | number>>>(
-      doFetch(this, {
-        url: `${this.url}/metric-payload-options`,
-        data: {
-          metric,
-          payload: this.processPayload(payload, 'builder', undefined),
-          name,
-        },
-        method: 'POST',
-      }).pipe(
-        map((response) =>
-          isArray(response.data)
-            ? response.data.map((item) => ({ ...item, label: item.label ? item.label : item.value }))
-            : []
-        )
-      )
-    );
-  }
+  mapToTextValue(result: any) {
+    return result.data.map((d: any, i: any) => {
+      if (d && d.text && d.value) {
+        return { text: d.text, value: d.value };
+      }
 
-  listMetrics(target: string | number, payload?: string | { [key: string]: any }): Promise<MetricConfig[]> {
-    return lastValueFrom<MetricConfig[]>(
-      doFetch(this, {
-        url: `${this.url}/metrics`,
-        data: {
-          metric: target.toString() ? getTemplateSrv().replace(target.toString(), undefined, 'regex') : undefined,
-          payload: payload ? this.processPayload(payload, 'builder', undefined) : undefined,
-        },
-        method: 'POST',
-      }).pipe(
-        map((response) => {
-          if (!isArray(response.data)) {
-            return [];
-          }
-
-          return response.data.map((item: MetricConfig | string) => {
-            if (typeof item === 'string') {
-              return { value: item, label: item, payloads: [] };
-            }
-
-            return {
-              ...item,
-              payloads: isArray(item.payloads)
-                ? item.payloads.map((payload: MetricPayloadConfig) => ({
-                    ...payload,
-                    label: payload.label ? payload.label : payload.name,
-                  }))
-                : [],
-              label: item.label ?? item.value,
-            };
-          });
-        })
-      )
-    );
+      if (isObject(d)) {
+        return { text: d, value: i };
+      }
+      return { text: d, value: d };
+    });
   }
 
   getTagKeys(options?: any): Promise<MetricFindTagKeys[]> {
@@ -218,57 +156,6 @@ export class DataSource extends DataSourceApi<GrafanaQuery, GenericOptions> {
     );
   }
 
-  mapToTextValue(result: any) {
-    return result.data.map((d: any, i: any) => {
-      if (d && d.text && d.value) {
-        return { text: d.text, value: d.value };
-      }
-
-      if (isObject(d)) {
-        return { text: d, value: i };
-      }
-      return { text: d, value: d };
-    });
-  }
-
-  processPayload(payload: string | { [key: string]: unknown }, editorMode?: QueryEditorMode, scopedVars?: ScopedVars) {
-    try {
-      if (typeof payload === 'string' && editorMode !== 'builder') {
-        if (payload.trim() !== '') {
-          return JSON.parse(
-            payload.replace((getTemplateSrv() as any).regex, (match) => this.cleanMatch(match, { scopedVars }))
-          );
-        }
-        return {};
-      } else {
-        const newPayload: { [key: string]: any } =
-          typeof payload === 'string' ? (JSON.parse(payload) as { [key: string]: unknown }) : { ...payload };
-        for (const key in newPayload) {
-          if (Object.prototype.hasOwnProperty.call(newPayload, key)) {
-            const value = newPayload[key];
-            if (isArray(value)) {
-              newPayload[key] = value.map((item) => getTemplateSrv().replace(item.toString(), scopedVars, 'regex'));
-            } else {
-              newPayload[key] = getTemplateSrv().replace(newPayload[key].toString(), scopedVars, 'regex');
-            }
-          }
-        }
-        return newPayload;
-      }
-    } catch (error) {
-      return {};
-    }
-  }
-
-  processTarget(q: GrafanaQuery, scopedVars?: ScopedVars) {
-    const query = { ...q };
-    query.payload = this.processPayload(query.payload ?? '', query.editorMode, scopedVars);
-    if (typeof query.target === 'string') {
-      query.target = getTemplateSrv().replace(query.target.toString(), scopedVars, 'regex');
-    }
-    return query;
-  }
-
   processTargets(options: QueryRequest) {
     options.targets = options.targets
       .filter((target) => {
@@ -276,18 +163,13 @@ export class DataSource extends DataSourceApi<GrafanaQuery, GenericOptions> {
         return target.target !== undefined;
       })
       .map((query) => {
-        return this.processTarget(query, options.scopedVars);
+        if (typeof query.target === 'string') {
+          query.target = getTemplateSrv().replace(query.target.toString(), options.scopedVars, 'regex');
+        }
+        return query;
       });
 
     return options;
-  }
-
-  cleanMatch(match: string, options: { scopedVars?: ScopedVars }) {
-    const replacedMatch = getTemplateSrv().replace(match, options.scopedVars, 'json');
-    if (replacedMatch[0] === '"' && replacedMatch[replacedMatch.length - 1] === '"') {
-      return JSON.parse(replacedMatch);
-    }
-    return replacedMatch;
   }
 
   getVariables() {

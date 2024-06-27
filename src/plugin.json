@@ -1,43 +1,55 @@
 {
-    "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
-    "name": "JSON",
-    "id": "simpod-json-datasource",
-    "type": "datasource",
-    "annotations": true,
-    "alerting": false,
-    "backend": false,
-    "metrics": true,
-    "logs": true,
-    "info": {
-        "author": {
-            "name": "Šimon Podlipský"
-        },
-        "description": "Load JSON data over your arbitrary HTTP backend",
-        "keywords": ["json", "api"],
-        "logos": {
-            "small": "img/json-logo.svg",
-            "large": "img/json-logo.svg"
-        },
-        "links": [
-            {
-                "name": "GitHub",
-                "url": "https://github.com/simPod/grafana-json-datasource"
-            },
-            {
-                "name": "MIT License",
-                "url": "https://github.com/simPod/grafana-json-datasource/blob/master/LICENSE"
-            }
-        ],
-        "screenshots": [
-          { "name": "Query", "path": "img/query.png" },
-          { "name": "Annotation", "path": "img/annotation.png" },
-          { "name": "Variable", "path": "img/variable.png" }
-        ],
-        "version": "%VERSION%",
-        "updated": "%TODAY%"
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
+  "name": "FAKE SIMPLE JSON",
+  "id": "fake-simple-json",
+  "type": "datasource",
+  "annotations": true,
+  "alerting": false,
+  "backend": false,
+  "metrics": true,
+  "logs": true,
+  "info": {
+    "author": {
+      "name": "wuyh_1"
     },
-    "dependencies": {
-        "grafanaDependency": ">=9.0.0",
-        "plugins": [ ]
-    }
+    "description": "Load JSON data over your arbitrary HTTP backend, something like grafana simple json",
+    "keywords": [
+      "json",
+      "api"
+    ],
+    "logos": {
+      "small": "img/json-logo.svg",
+      "large": "img/json-logo.svg"
+    },
+    "links": [
+      {
+        "name": "GitHub",
+        "url": "https://github.com/monster5475/FakeSimpleJson"
+      },
+      {
+        "name": "MIT License",
+        "url": "https://github.com/monster5475/FakeSimpleJson/blob/main/LICENSE"
+      }
+    ],
+    "screenshots": [
+      {
+        "name": "Query",
+        "path": "img/query.png"
+      },
+      {
+        "name": "Annotation",
+        "path": "img/annotation.png"
+      },
+      {
+        "name": "Search",
+        "path": "img/search.png"
+      }
+    ],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=9.0.0",
+    "plugins": []
+  }
 }

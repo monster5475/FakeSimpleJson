@@ -1,117 +1,68 @@
-import { QueryEditorProps, SelectableValue } from '@grafana/data';
-import { CodeEditor, InlineField, InlineFieldRow, InlineLabel, Select } from '@grafana/ui';
-import { find } from 'lodash';
+import { QueryEditorProps } from '@grafana/data';
+import { CodeEditor, InlineFieldRow, InlineLabel, Select } from '@grafana/ui';
 
 import React, { ComponentType } from 'react';
-import AutoSizer from 'react-virtualized-auto-sizer';
 import { DataSource } from '../DataSource';
 
-import { GenericOptions, GrafanaQuery } from '../types';
+import AutoSizer from 'react-virtualized-auto-sizer';
+import { GenericOptions, GetQueryEditorTargetTypeOptions, GrafanaQuery, QueryEditorTargetType } from '../types';
 
-interface Props extends QueryEditorProps<DataSource, GrafanaQuery, GenericOptions> {
-  payload?: string;
-}
+type IProps = QueryEditorProps<DataSource, GrafanaQuery, GenericOptions>;
 
 interface LastQuery {
-  payload: string;
-  metric: string;
+  target: string;
+  typ: string;
 }
 
-export const QueryEditor: ComponentType<Props> = ({
-  datasource,
-  onChange,
-  onRunQuery,
-  query,
-  payload: queryPayload,
-}) => {
-  const [metric, setMetric] = React.useState<SelectableValue<string | number>>();
-  const [payload, setPayload] = React.useState(queryPayload ?? '');
-
+export const QueryEditor: ComponentType<IProps> = ({ datasource, onChange, onRunQuery, query, }) => {
   const [lastQuery, setLastQuery] = React.useState<LastQuery | null>(null);
 
-  const [metricOptions, setMetricOptions] = React.useState<Array<SelectableValue<string | number>>>([]);
-  const [isMetricOptionsLoading, setIsMetricOptionsLoading] = React.useState<boolean>(false);
+  const [target, setTarget] = React.useState<string>(query.target ?? "");
+  const [typ, setTyp] = React.useState<string>(query.type ?? QueryEditorTargetType.TimeSerie);
 
-  const loadMetrics = React.useCallback(() => {
-    return datasource.listMetrics('', undefined).then(
-      (result) => {
-        const metrics = result.map((value) => ({ label: value.label, value: value.value }));
-
-        const foundMetric = find(metrics, (metric) => metric.value === query.target);
-
-        setMetric(foundMetric === undefined ? { label: '', value: '' } : foundMetric);
-
-        return metrics;
-      },
-      (response) => {
-        setMetric({ label: '', value: '' });
-        setMetricOptions([]);
-
-        throw new Error(response.statusText);
-      }
-    );
-  }, [datasource, query.target]);
-
-  const refreshMetricOptions = React.useCallback(() => {
-    setIsMetricOptionsLoading(true);
-    loadMetrics()
-      .then((metrics) => {
-        setMetricOptions(metrics);
-      })
-      .finally(() => {
-        setIsMetricOptionsLoading(false);
-      });
-  }, [loadMetrics, setMetricOptions, setIsMetricOptionsLoading]);
-
-  // Initializing metric options
-  React.useEffect(() => refreshMetricOptions(), []);
+  const typOptions = GetQueryEditorTargetTypeOptions();
 
   React.useEffect(() => {
-    if (metric?.value === undefined || metric?.value === '') {
+    if (target === "") {
       return;
     }
 
-    if (lastQuery !== null && metric?.value === lastQuery.metric && payload === lastQuery.payload) {
+    if (lastQuery !== null && target === lastQuery.target && typ === lastQuery.typ) {
       return;
     }
 
-    setLastQuery({ payload, metric: metric.value.toString() });
+    setLastQuery({ target, typ });
 
-    onChange({ ...query, payload, target: metric.value.toString() });
+    onChange({ ...query, target: target, type: typ });
 
     onRunQuery();
-  }, [payload, metric]);
+  }, [target, typ]);
 
   return (
     <>
       <InlineFieldRow>
-        <InlineField>
+        <div style={{ width: '15%', marginBottom: '2vh' }}>
           <Select
-            isLoading={isMetricOptionsLoading}
-            prefix="Metric: "
-            options={metricOptions}
-            placeholder="Select metric"
-            allowCustomValue
-            value={metric}
-            onChange={(v) => {
-              setMetric(v);
-            }}
+            defaultValue={QueryEditorTargetType.TimeSerie}
+            options={typOptions}
+            value={typ}
+            onChange={(v) => setTyp(v.value || QueryEditorTargetType.TimeSerie)}
           />
-        </InlineField>
+        </div>
       </InlineFieldRow>
       <InlineFieldRow>
         <AutoSizer disableHeight>
           {({ width }) => (
             <div style={{ width: width + 'px' }}>
-              <InlineLabel>Payload</InlineLabel>
+              <InlineLabel>Target</InlineLabel>
               <CodeEditor
                 width="100%"
                 height="200px"
-                language="json"
+                language="text"
                 showLineNumbers={true}
-                showMiniMap={payload.length > 100}
-                value={payload}
-                onBlur={(value) => setPayload(value)}
+                showMiniMap={target.length > 100}
+                value={target}
+                onBlur={(v) => setTarget(v)}
               />
             </div>
           )}
