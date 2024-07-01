@@ -6,7 +6,7 @@ import {
   MetricFindValue,
   toDataFrame,
   VariableOption,
-  VariableWithMultiSupport
+  VariableWithMultiSupport,
 } from '@grafana/data';
 import { BackendDataSourceResponse, FetchResponse, getTemplateSrv } from '@grafana/runtime';
 import { isObject } from 'lodash';
@@ -20,7 +20,7 @@ import {
   MetricFindTagKeys,
   MetricFindTagValues,
   QueryRequest,
-  VariableQuery
+  VariableQuery,
 } from './types';
 import { valueFromVariableWithMultiSupport } from './variable/valueFromVariableWithMultiSupport';
 

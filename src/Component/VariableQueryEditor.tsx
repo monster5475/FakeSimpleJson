@@ -2,12 +2,12 @@ import { InlineField, InlineFieldRow, TextArea } from '@grafana/ui';
 import React, { useState } from 'react';
 import { VariableQuery } from '../types';
 
-interface IProps {
+interface Props {
   query: VariableQuery;
   onChange: (query: VariableQuery, definition: string) => void;
 }
 
-export const VariableQueryEditor: React.FC<IProps> = ({ onChange, query }) => {
+export const VariableQueryEditor: React.FC<Props> = ({ onChange, query }) => {
   const [variableQuery, setVariableQuery] = useState(query);
   const saveQuery = () => {
     onChange(variableQuery, `${variableQuery.query}`);

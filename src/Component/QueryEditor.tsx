@@ -14,16 +14,16 @@ interface LastQuery {
   typ: string;
 }
 
-export const QueryEditor: ComponentType<IProps> = ({ datasource, onChange, onRunQuery, query, }) => {
+export const QueryEditor: ComponentType<IProps> = ({ datasource, onChange, onRunQuery, query }) => {
   const [lastQuery, setLastQuery] = React.useState<LastQuery | null>(null);
 
-  const [target, setTarget] = React.useState<string>(query.target ?? "");
+  const [target, setTarget] = React.useState<string>(query.target ?? '');
   const [typ, setTyp] = React.useState<string>(query.type ?? QueryEditorTargetType.TimeSerie);
 
   const typOptions = GetQueryEditorTargetTypeOptions();
 
   React.useEffect(() => {
-    if (target === "") {
+    if (target === '') {
       return;
     }
 

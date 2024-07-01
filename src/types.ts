@@ -2,7 +2,7 @@ import { DataQueryRequest, DataSourceJsonData, MetricFindValue, SelectableValue 
 import { DataQuery } from '@grafana/schema';
 import _ from 'lodash';
 
-export interface QueryRequest extends DataQueryRequest<GrafanaQuery> { }
+export interface QueryRequest extends DataQueryRequest<GrafanaQuery> {}
 
 export interface GrafanaQuery extends DataQuery {
   alias?: string;
@@ -10,8 +10,7 @@ export interface GrafanaQuery extends DataQuery {
   type?: string;
 }
 
-export interface GenericOptions extends DataSourceJsonData {
-}
+export interface GenericOptions extends DataSourceJsonData {}
 
 export interface VariableQuery {
   query: string;
@@ -31,15 +30,15 @@ export interface MetricFindTagValues extends MetricFindValue {
 export const QueryEditorTargetType = {
   TimeSerie: 'timeserie',
   Table: 'table',
-}
+};
 
 export const GetQueryEditorTargetTypeOptions = (): Array<SelectableValue<string>> => {
-  let options: Array<SelectableValue<string>> = new Array();
-  _.values(QueryEditorTargetType).forEach(val => {
+  let options: Array<SelectableValue<string>> = [];
+  _.values(QueryEditorTargetType).forEach((val) => {
     options.push({
       label: val,
       value: val,
     });
   });
   return options;
-}
+};
