@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 )
@@ -9,8 +11,8 @@ import (
 func newHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/grafana/json", hello)
-	mux.HandleFunc("/api/grafana/json/metrics", getMetrics)
-	mux.HandleFunc("/api/grafana/json/metric-payload-options", getMetricPayloadOptions)
+	mux.HandleFunc("/api/grafana/json/query", query)
+	mux.HandleFunc("/api/grafana/json/search", search)
 	return mux
 }
 
@@ -20,153 +22,102 @@ func main() {
 	http.ListenAndServe(":8181", newHandler())
 }
 
-var defaultMetrics = `
-[{
-  "label": "Describe metric list",
-  "value": "DescribeMetricList",
-  "payloads": [{
-    "label": "Namespace",
-    "name": "namespace",
-    "type": "select",
-    "defaultValue": "acs_mongodb",
-    "placeholder": "Please select namespace",
-    "reloadMetric": true,
-    "options": [{
-      "label": "acs_mongodb",
-      "value": "acs_mongodb"
-    },{
-      "label": "acs_rds",
-      "value": "acs_rds"
-    }]
-  },{
-    "name": "metric",
-    "type": "select"
-  }]
-},{
-  "value": "DescribeMetricLast",
-  "payloads": [{
-    "name": "namespace",
-    "type": "select"
-  },{
-    "name": "metric",
-    "type": "input"
-  },{
-    "name": "instanceId",
-    "type": "multi-select"
-  }]
-}]
-`
-var rdsMetrics = `
-[{
-  "label": "Describe metric list",
-  "value": "DescribeMetricList",
-  "payloads": [{
-    "label": "Namespace",
-    "name": "namespace",
-    "type": "select",
-    "defaultValue": "acs_mongodb",
-    "placeholder": "Please select namespace",
-    "reloadMetric": true,
-    "options": [{
-      "label": "acs_mongodb",
-      "value": "acs_mongodb"
-    },{
-      "label": "acs_rds",
-      "value": "acs_rds"
-    }]
-  },{
-    "name": "metric",
-    "type": "select"
-  },{
-    "name": "instanceId",
-    "type": "select"
-  }]
-},{
-  "value": "DescribeMetricLast",
-  "payloads": [{
-    "name": "namespace",
-    "type": "select"
-  },{
-    "name": "metric",
-    "type": "input"
-  },{
-    "name": "instanceId",
-    "type": "multi-select"
-  }]
-}]
-`
-
-type MetricsRequest struct {
-	Metric  string                 `json:"metric"`
-	Payload map[string]interface{} `json:"payload"`
+type GrafanaRangeRaw struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
-func getMetrics(writer http.ResponseWriter, request *http.Request) {
-	var req MetricsRequest
-	err := json.NewDecoder(request.Body).Decode(&req)
+type GrafanaRange struct {
+	From string          `json:"from"`
+	To   string          `json:"to"`
+	Raw  GrafanaRangeRaw `json:"raw"`
+}
+
+type GrafanaTarget struct {
+	Target string `json:"target"`
+	RefId  string `json:"refId"`
+}
+
+type QueryReq struct {
+	PanelId       int64           `json:"panelId"`
+	Range         GrafanaRange    `json:"range"`
+	RangeRaw      GrafanaRangeRaw `json:"ranegRaw"`
+	Interval      string          `json:"interval"`
+	IntervalMs    int64           `json:"intervalMs"`
+	MaxDataPoints int64           `json:"maxDataPoints"`
+	Target        []GrafanaTarget `json:"target"`
+	Filters       interface{}     `json:"filters"`
+}
+
+type QueryResp struct {
+	Target     string      `json:"target"`
+	DataPoints [][]float64 `json:"datapoints"`
+}
+
+func query(writer http.ResponseWriter, request *http.Request) {
+	body, err := io.ReadAll(request.Body)
 	if err != nil {
-		writer.WriteHeader(500)
+		http.Error(writer, "error reading request body", http.StatusInternalServerError)
 		return
 	}
-	writer.Header().Set("content-type", "application/json")
-	if req.Metric == "DescribeMetricList" && req.Payload["namespace"] == "acs_rds" {
-		writer.Write([]byte(rdsMetrics))
-		return
-	}
-	writer.Write([]byte(defaultMetrics))
-}
-
-type OptionsRequest struct {
-	Name    string                 `json:"name"`
-	Metric  string                 `json:"metric"`
-	Payload map[string]interface{} `json:"payload"`
-}
-
-func getMetricPayloadOptions(writer http.ResponseWriter, request *http.Request) {
-	var req OptionsRequest
-	err := json.NewDecoder(request.Body).Decode(&req)
+	var req QueryReq
+	err = json.Unmarshal(body, &req)
 	if err != nil {
-		writer.WriteHeader(500)
+		http.Error(writer, "error while unmarshal", http.StatusInternalServerError)
 		return
 	}
-	writer.Header().Set("content-type", "application/json")
-	switch req.Name {
-	case "instanceId":
-		writer.Write([]byte(`[{
-      "label": "My Database 1",
-      "value": "sadbip2kasdmnlo"
-    },{
-      "label": "My Database 2",
-      "value": "sadbip2kasdmnla"
-    },{
-      "label": "My Database 3",
-      "value": "sadbip2kasdmnlx"
-    }]`))
+	fmt.Printf("req is: %+v\n", req)
 
-	case "metric":
-		writer.Write([]byte(`[{
-      "label": "CPUUtilization",
-      "value": "CPUUtilization"
-    },{
-      "label": "DiskReadIOPS",
-      "value": "DiskReadIOPS"
-    },{
-      "label": "memory_freeutilization",
-      "value": "memory_freeutilization"
-    }]`))
-	case "namespace":
-		writer.Write([]byte(`[{
-      "label": "MongoDB",
-      "value": "acs_mongodb"
-    },{
-      "label": "RDS",
-      "value": "acs_rds"
-    },{
-      "label": "Load balancer",
-      "value": "acs_load_balancer"
-    }]`))
+	var resp []QueryResp = []QueryResp{
+		{Target: "pps in", DataPoints: [][]float64{{622, 1450754160000}, {365, 1450754220000}}},
+		{Target: "pps out", DataPoints: [][]float64{{861, 1450754160000}, {767, 1450754220000}}},
 	}
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(writer, "error while marshal", http.StatusInternalServerError)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.Write(respBytes)
 }
+
+type SearchReq struct {
+	Target   string          `json:"target"`
+	RangeRaw GrafanaRangeRaw `json:"rangeRaw"`
+}
+
+type SearchResp struct {
+	Text  string `json:"text"`
+	Value string `json:"value"`
+}
+
+func search(writer http.ResponseWriter, request *http.Request) {
+	body, err := io.ReadAll(request.Body)
+	if err != nil {
+		http.Error(writer, "error reading request body", http.StatusInternalServerError)
+		return
+	}
+	var req SearchReq
+	err = json.Unmarshal(body, &req)
+	if err != nil {
+		http.Error(writer, "error while unmarshal", http.StatusInternalServerError)
+		return
+	}
+	fmt.Printf("req is: %+v\n", req)
+
+	var resp []SearchResp = []SearchResp{
+		{Text: "Label 1", Value: "Value 1"},
+		{Text: "Label 2", Value: "Value 2"},
+	}
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(writer, "error while marshal", http.StatusInternalServerError)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.Write(respBytes)
+}
+
 func hello(writer http.ResponseWriter, request *http.Request) {
 	writer.Write([]byte("ok"))
 }

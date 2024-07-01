@@ -1,4 +1,4 @@
-module github.com/simPod/GrafanaJsonDatasource/examples/server
+module github.com/monster5475/FakeSimpleJson/examples/server
 
 go 1.18
 
