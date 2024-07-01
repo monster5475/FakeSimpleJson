@@ -155,7 +155,7 @@ Example request body:
     "to":"2022-02-21T08:09:32.164Z",
     "raw":{"from":"now-7d","to":"now"}
   },
-  "target": {},
+  "target": "",
 }
 ```
 

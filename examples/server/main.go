@@ -45,7 +45,7 @@ type QueryReq struct {
 	Interval      string          `json:"interval"`
 	IntervalMs    int64           `json:"intervalMs"`
 	MaxDataPoints int64           `json:"maxDataPoints"`
-	Target        []GrafanaTarget `json:"target"`
+	Targets       []GrafanaTarget `json:"targets"`
 	Filters       interface{}     `json:"filters"`
 }
 
@@ -82,8 +82,8 @@ func query(writer http.ResponseWriter, request *http.Request) {
 }
 
 type SearchReq struct {
-	Target   string          `json:"target"`
-	RangeRaw GrafanaRangeRaw `json:"rangeRaw"`
+	Target string       `json:"target"`
+	Range  GrafanaRange `json:"range"`
 }
 
 type SearchResp struct {
